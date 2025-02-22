@@ -17,6 +17,7 @@ interface GeofenceLocation {
 
 // Update this to match your computer's IP address (not localhost!)
 const BACKEND_URL = 'http://172.20.10.6:5000'; // Replace xxx with your IP's last numbers
+const DEBUG = true;
 
 const GEO_LOCATIONS: GeofenceLocation[] = [
   {
@@ -106,12 +107,24 @@ export default function LocationTracker() {
   // Posting interval
   const postIntervalRef = useRef<NodeJS.Timer | null>(null);
 
+  // Add last post timestamp tracking
+  const lastPostTime = useRef<number>(0);
+  const POST_INTERVAL = 15000; // 15 seconds in milliseconds
+
   // 🟢 Helper to add logs to the "Status Updates" list
   const addStatusMessage = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     const fullMessage = `[${timestamp}] ${message}`;
     console.log(fullMessage);
     setStatusMessages((prev) => [fullMessage, ...prev.slice(0, 19)]); // Keep last 20 messages
+  };
+
+  // Add debug logging function
+  const debugLog = (message: string) => {
+    if (DEBUG) {
+      console.log(`[DEBUG] ${message}`);
+      addStatusMessage(`DEBUG: ${message}`);
+    }
   };
 
   // Add server status check
@@ -133,75 +146,84 @@ export default function LocationTracker() {
 
   // 🟢 Modified to handle location updates better
   const checkGeofencesAndPost = async (coords: { latitude: number; longitude: number }, forcePost: boolean = false) => {
-    let insideZones: string[] = [];
-    const newDistances: { [key: string]: number } = {};
-    const newBearings: { [key: string]: number } = {};
+    try {
+      // Update geofences as before
+      let insideZones: string[] = [];
+      const newDistances: { [key: string]: number } = {};
+      const newBearings: { [key: string]: number } = {};
 
-    GEO_LOCATIONS.forEach((geo) => {
-      const distance = haversineDistance(coords.latitude, coords.longitude, geo.latitude, geo.longitude);
-      const bearing = calculateBearing(coords.latitude, coords.longitude, geo.latitude, geo.longitude);
+      GEO_LOCATIONS.forEach((geo) => {
+        const distance = haversineDistance(coords.latitude, coords.longitude, geo.latitude, geo.longitude);
+        const bearing = calculateBearing(coords.latitude, coords.longitude, geo.latitude, geo.longitude);
 
-      newDistances[geo.id] = distance;
-      newBearings[geo.id] = bearing;
+        newDistances[geo.id] = distance;
+        newBearings[geo.id] = bearing;
 
-      if (distance <= geo.radius) {
-        insideZones.push(geo.name);
+        if (distance <= geo.radius) {
+          insideZones.push(geo.name);
+        }
+      });
+
+      // Update distances/bearings for UI
+      setDistances(newDistances);
+      setBearings(newBearings);
+
+      // Update zone status and log
+      if (insideZones.length === 0) {
+        if (currentZoneStatus !== "Not in any zone") {
+          setCurrentZoneStatus("Not in any zone");
+          addStatusMessage("Not in any zone");
+        }
+      } else {
+        const newStatus = `Currently in: ${insideZones.join(", ")}`;
+        if (newStatus !== currentZoneStatus) {
+          setCurrentZoneStatus(newStatus);
+          addStatusMessage(newStatus);
+        }
       }
-    });
 
-    // Update distances/bearings for UI
-    setDistances(newDistances);
-    setBearings(newBearings);
+      // Log current location every 2 seconds
+      addStatusMessage(`Current location: Lat ${coords.latitude.toFixed(6)}, Long ${coords.longitude.toFixed(6)}`);
 
-    // Update zone status and log
-    if (insideZones.length === 0) {
-      if (currentZoneStatus !== "Not in any zone") {
-        setCurrentZoneStatus("Not in any zone");
-        addStatusMessage("Not in any zone");
-      }
-    } else {
-      const newStatus = `Currently in: ${insideZones.join(", ")}`;
-      if (newStatus !== currentZoneStatus) {
-        setCurrentZoneStatus(newStatus);
-        addStatusMessage(newStatus);
-      }
-    }
-
-    // Log current location every 2 seconds
-    addStatusMessage(`Current location: Lat ${coords.latitude.toFixed(6)}, Long ${coords.longitude.toFixed(6)}`);
-
-    // Only post to server if forced (will be called by interval)
-    if (forcePost && coords) {
-      try {
-        // First check if server is ready
+      // Check if it's time to post (15 seconds elapsed)
+      const now = Date.now();
+      if (forcePost || (now - lastPostTime.current >= POST_INTERVAL)) {
+        debugLog('Preparing to send location to server...');
+        
+        // Check server status before posting
         const serverReady = await checkServerStatus();
         if (!serverReady) {
-          addStatusMessage('Skipping location post - Server not ready');
+          debugLog('Server not ready, skipping post');
           return;
         }
 
-        addStatusMessage(`📍 Sending to Instagram: Lat ${coords.latitude.toFixed(6)}, Long ${coords.longitude.toFixed(6)}`);
-        
-        const response = await fetch(`${BACKEND_URL}/send-comment`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            latitude: coords.latitude,
-            longitude: coords.longitude
-          }),
-        });
+        try {
+          const response = await fetch(`${BACKEND_URL}/send-comment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              latitude: coords.latitude,
+              longitude: coords.longitude
+            }),
+          });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Server error');
+          if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`);
+          }
+
+          const data = await response.json();
+          addStatusMessage(`✅ Posted to Instagram: ${data.comment}`);
+          lastPostTime.current = now; // Update last post time
+          debugLog('Successfully posted location');
+        } catch (error) {
+          addStatusMessage(`❌ Failed to post: ${error.message}`);
+          debugLog(`Post error: ${error}`);
         }
-        
-        const data = await response.json();
-        addStatusMessage(`✅ Posted to Instagram: ${data.comment}`);
-      } catch (err) {
-        addStatusMessage(`❌ Failed to post: ${err.message}`);
-        console.error('Post error:', err);
       }
+    } catch (error) {
+      debugLog(`Error in checkGeofencesAndPost: ${error}`);
     }
   };
 
@@ -223,6 +245,7 @@ export default function LocationTracker() {
 
       setIsTracking(true);
       addStatusMessage('Location tracking started');
+      lastPostTime.current = 0; // Reset last post time
 
       // Subscribe to location updates (every 2 seconds)
       watchSubscription.current = await Location.watchPositionAsync(
@@ -244,13 +267,6 @@ export default function LocationTracker() {
           checkGeofencesAndPost(newLoc.coords, false);
         }
       );
-
-      // Set up 15-second interval for posting to server
-      postIntervalRef.current = setInterval(() => {
-        if (location?.coords) {
-          checkGeofencesAndPost(location.coords, true);
-        }
-      }, 15000);
 
     } catch (error) {
       setErrorMsg('Error starting location tracking');
@@ -274,6 +290,18 @@ export default function LocationTracker() {
 
   // 🟢 Clean up on unmount
   useEffect(() => {
+    const testConnection = async () => {
+      try {
+        debugLog('Testing server connection...');
+        const response = await fetch(`${BACKEND_URL}/status`);
+        const data = await response.json();
+        debugLog(`Server status: ${JSON.stringify(data)}`);
+      } catch (err) {
+        debugLog(`Connection test failed: ${err}`);
+      }
+    };
+
+    testConnection();
     return () => {
       stopLocationTracking();
     };

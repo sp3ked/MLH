@@ -5,7 +5,14 @@ const bodyParser = require('body-parser');
 const { Builder, By, until, Key } = require('selenium-webdriver');
 
 const app = express();
-app.use(cors());
+
+// Update CORS settings
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
+
 app.use(bodyParser.json());
 
 // Global driver, starts null
@@ -60,35 +67,45 @@ async function postComment(comment) {
 
   while (attempts < maxAttempts) {
     try {
-      // Find the comment input area and click it
+      console.log("Looking for comment box...");
+      // Wait longer for the comment box and be more specific with selector
       const commentBox = await driver.wait(
-        until.elementLocated(By.css('textarea[aria-label="Add a comment…"]')),
-        5000
+        until.elementLocated(By.css('textarea[aria-label="Add a comment…"], textarea[placeholder="Add a comment…"]')),
+        10000
       );
-      await driver.sleep(1000); // Short pause
-      await commentBox.click();
-      await driver.sleep(500);
+      console.log("Found comment box, clicking...");
+      await driver.sleep(2000); // More wait time
 
-      // Clear any existing text
+      // Try to scroll the comment box into view
+      await driver.executeScript("arguments[0].scrollIntoView(true);", commentBox);
+      await driver.sleep(1000);
+
+      await commentBox.click();
+      console.log("Clicked comment box");
+      await driver.sleep(1000);
+
+      // Clear with JavaScript and then sendKeys
+      await driver.executeScript("arguments[0].value = '';", commentBox);
       await commentBox.clear();
       await driver.sleep(500);
 
-      // Type the comment
+      console.log("Typing comment:", comment);
       await commentBox.sendKeys(comment);
-      await driver.sleep(500);
+      await driver.sleep(1000);
 
-      // Send the comment
+      console.log("Sending comment...");
       await commentBox.sendKeys(Key.RETURN);
-      console.log(`✅ Comment posted successfully: ${comment}`);
+      await driver.sleep(1000);
+      
+      console.log("✅ Comment posted!");
       return true;
     } catch (error) {
       attempts++;
-      console.log(`Attempt ${attempts} failed. ${maxAttempts - attempts} attempts remaining.`);
-      await driver.sleep(1000); // Wait before retry
+      console.log(`Attempt ${attempts} failed:`, error.message);
+      await driver.sleep(2000); // Longer wait between retries
 
       if (attempts === maxAttempts) {
-        console.error("❌ Failed to post comment after multiple attempts:", error.message);
-        throw new Error("Failed to post comment after multiple attempts");
+        throw new Error(`Failed to post comment: ${error.message}`);
       }
     }
   }
@@ -110,20 +127,22 @@ app.get('/status', (req, res) => {
  * Just post the comment, initialization handled separately
  */
 app.post('/send-comment', async (req, res) => {
+  console.log('📥 Received location update:', req.body);
+  
   try {
-    if (!instagramReady || !driver) {
-      return res.status(503).json({ 
-        error: "Instagram not ready",
-        message: "Server is still initializing or needs reconnection"
-      });
+    if (!driver || !instagramReady) {
+      console.log("Instagram not ready, initializing...");
+      await initInstagram();
+      instagramReady = true;
     }
 
     const { latitude, longitude } = req.body;
     const comment = `Location Update - Lat: ${latitude.toFixed(6)}, Long: ${longitude.toFixed(6)}`;
 
-    console.log("Posting comment:", comment);
+    console.log("Attempting to post comment:", comment);
     await postComment(comment);
     
+    console.log("Successfully posted comment!");
     res.json({ 
       message: "Comment posted successfully!", 
       comment,
@@ -131,13 +150,27 @@ app.post('/send-comment', async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error posting comment:", error.message);
+    console.error("❌ Error posting comment:", error);
     
-    // If session error, mark as not ready
-    if (error.message.includes("session") || error.message.includes("stale")) {
+    // Try to recover from session errors
+    if (error.message.includes("session") || error.message.includes("stale") || error.message.includes("element")) {
       instagramReady = false;
-      // Try to reconnect in background
-      initInstagram().catch(console.error);
+      console.log("Session error detected, reinitializing...");
+      try {
+        if (driver) {
+          await driver.quit();
+          driver = null;
+        }
+        await initInstagram();
+        instagramReady = true;
+        // Try posting again
+        return res.status(503).json({
+          error: "Session reset, please retry",
+          shouldRetry: true
+        });
+      } catch (reinitError) {
+        console.error("Failed to reinitialize:", reinitError);
+      }
     }
 
     res.status(500).json({ 
@@ -163,11 +196,13 @@ app.post('/stop', async (req, res) => {
 });
 
 /**
- * Modified server startup
+ * Modified server startup to bind to all interfaces
  */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, async () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', async () => {
+  console.log(`🚀 Server running on:`);
+  console.log(`- Local: http://localhost:${PORT}`);
+  console.log(`- Network: http://172.20.10.6:${PORT}`);
   
   // Initialize Instagram on startup
   try {
