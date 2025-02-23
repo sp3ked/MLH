@@ -25,7 +25,7 @@
 ## 🔧 Installation & Setup  
 ### **1. Clone the Repository**  
 bash  
-git clone https://github.com/yourusername/LocalLens.git  
+git clone https://github.com/sp3ked/MLH.git  
 cd LocalLens  
 
 2. Install Dependencies
