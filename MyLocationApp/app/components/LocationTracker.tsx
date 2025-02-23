@@ -17,7 +17,7 @@ interface GeofenceLocation {
 }
 
 // Update this to match your computer's IP address (not localhost!)
-const BACKEND_URL = 'http://172.20.10.6:5000'; // Replace xxx with your IP's last numbers
+const BACKEND_URL = 'http://100.100.154.5:5000'; // Replace xxx with your IP's last numbers
 const DEBUG = true;
 
 const GEO_LOCATIONS: GeofenceLocation[] = [
@@ -59,10 +59,10 @@ const GEO_LOCATIONS: GeofenceLocation[] = [
     name: 'Verve',
     latitude: 40.422234,
     longitude: -86.907011,
-    radius: 100,
+    radius: 200,
     comment: 'You are at Verve!',
     facts: [
-      'Verve is a popular coffee shop near Purdue’s campus.',
+      'Verve is a popular apartment complex near Purdue’s campus.',
       'It is known for its cozy atmosphere and delicious coffee.',
       'Students often come here to study and socialize.'
     ]
@@ -246,6 +246,14 @@ const DirectionArrow = ({ bearing }: { bearing: number }) => (
   />
 );
 
+// Helper to convert bearing to simple N/S/E/W
+function getCardinalDirection(bearing: number): string {
+  if (bearing >= 45 && bearing < 135) return "East";
+  if (bearing >= 135 && bearing < 225) return "South";
+  if (bearing >= 225 && bearing < 315) return "West";
+  return "North";
+}
+
 export default function LocationTracker() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -255,6 +263,7 @@ export default function LocationTracker() {
   const [distances, setDistances] = useState<{ [key: string]: number }>({});
   const [bearings, setBearings] = useState<{ [key: string]: number }>({});
   const [currentZoneStatus, setCurrentZoneStatus] = useState("Not in any zone");
+  const [lastZone, setLastZone] = useState("");
 
   // For logs at the bottom
   const [statusMessages, setStatusMessages] = useState<string[]>([]);
@@ -272,9 +281,6 @@ export default function LocationTracker() {
   const lastPostTime = useRef<number>(0);
   const isPosting = useRef<boolean>(false);
   const POST_INTERVAL = 10000; // 10 seconds in milliseconds
-
-  // Track zones that have already had facts posted
-  const visitedZones = useRef<Set<string>>(new Set());
 
   // 🟢 Helper to add logs to the "Status Updates" list
   const addStatusMessage = (message: string) => {
@@ -298,13 +304,13 @@ export default function LocationTracker() {
       const response = await fetch(`${BACKEND_URL}/status`);
       const data = await response.json();
       if (!data.ready) {
-        addStatusMessage('⚠️ Warning: Instagram server not ready');
+        addStatusMessage('Warning: Instagram server not ready');
         return false;
       }
-      addStatusMessage('✅ Instagram server connected');
+      addStatusMessage('Instagram server connected');
       return true;
     } catch (err) {
-      addStatusMessage(`❌ Can't reach server at ${BACKEND_URL}`);
+      addStatusMessage(`Can't reach server at ${BACKEND_URL}`);
       return false;
     }
   };
@@ -316,22 +322,35 @@ export default function LocationTracker() {
       let insideZones: string[] = [];
       const newDistances: { [key: string]: number } = {};
       const newBearings: { [key: string]: number } = {};
+      let newZone = "";
       let currentFacts: string[] = [];
+      let zoneComment = "";
 
+      // Find the closest geofence
       GEO_LOCATIONS.forEach((geo) => {
         const distance = haversineDistance(coords.latitude, coords.longitude, geo.latitude, geo.longitude);
+        debugLog(`Distance to ${geo.name}: ${distance.toFixed(2)}m`);
         const bearing = calculateBearing(coords.latitude, coords.longitude, geo.latitude, geo.longitude);
 
         newDistances[geo.id] = distance;
         newBearings[geo.id] = bearing;
 
-        // Only post once upon first entry
-        if (distance <= geo.radius && !visitedZones.current.has(geo.id)) {
-          insideZones.push(geo.name);
+        if (distance <= geo.radius && (newZone === "" || distance < haversineDistance(coords.latitude, coords.longitude, GEO_LOCATIONS.find(z => z.name === newZone)?.latitude || 0, GEO_LOCATIONS.find(z => z.name === newZone)?.longitude || 0))) {
+          newZone = geo.name;
           currentFacts = geo.facts;
-          visitedZones.current.add(geo.id);
+          zoneComment = geo.comment;
         }
       });
+
+      // Identify the second closest (nextClosest) among all geofences
+      const sortedGeofences = GEO_LOCATIONS.map((geo) => {
+        const distance = haversineDistance(coords.latitude, coords.longitude, geo.latitude, geo.longitude);
+        const bearing = calculateBearing(coords.latitude, coords.longitude, geo.latitude, geo.longitude);
+        return { ...geo, distance, bearing };
+      }).sort((a, b) => a.distance - b.distance);
+
+      // nextClosest is the first item where .name != newZone
+      const nextClosest = sortedGeofences.find(g => g.name !== newZone);
 
       // Update distances/bearings for UI
       setDistances(newDistances);
@@ -354,24 +373,44 @@ export default function LocationTracker() {
       // Log current location every 2 seconds
       addStatusMessage(`Current location: Lat ${coords.latitude.toFixed(6)}, Long ${coords.longitude.toFixed(6)}`);
 
-      // If a new zone was entered, post immediately
-      if (insideZones.length > 0 && currentFacts.length > 0) {
-        debugLog('Preparing to send location to server...');
+      // If a new zone was entered, post two comments
+      if (newZone && newZone !== lastZone) {
+        setLastZone(newZone);
+        debugLog(`New zone detected: ${newZone}`);
         const serverReady = await checkServerStatus();
         if (!serverReady) return;
 
         try {
-          const factToPost = currentFacts[Math.floor(Math.random() * currentFacts.length)];
-          const response = await fetch(`${BACKEND_URL}/send-comment`, {
+          // First comment with description & facts
+          const descAndFacts = `[${newZone}] ${zoneComment} ${currentFacts.join(" ")}`;
+
+          // Second comment for nextClosest location
+          let nextLocComment = "";
+          if (nextClosest) {
+            const direction = getCardinalDirection(nextClosest.bearing);
+            nextLocComment = `Next closest is ${nextClosest.name}, about ${nextClosest.distance.toFixed(0)}m to the ${direction}. Look for "${nextClosest.comment}".`;
+          }
+
+          // Post both
+          let response = await fetch(`${BACKEND_URL}/send-comment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fact: factToPost }),
+            body: JSON.stringify({ fact: descAndFacts }),
           });
           if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+
+          if (nextLocComment) {
+            response = await fetch(`${BACKEND_URL}/send-comment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fact: nextLocComment }),
+            });
+            if (!response.ok) throw new Error(`Server responded for next location with ${response.status}`);
+          }
           const data = await response.json();
-          addStatusMessage(`✅ Posted to Instagram: ${data.comment}`);
+          addStatusMessage(`Posted to Instagram: ${data.comment}`);
         } catch (error) {
-          addStatusMessage(`❌ Failed to post: ${error.message}`);
+          addStatusMessage(`Failed to post: ${error.message}`);
           debugLog(`Post error: ${error}`);
         }
       }
@@ -479,99 +518,99 @@ export default function LocationTracker() {
           style={styles.map}
           initialRegion={{
             latitude: GEO_LOCATIONS[0].latitude,
-            longitude: GEO_LOCATIONS[0].longitude,
-            latitudeDelta: 0.002,
-            longitudeDelta: 0.002,
-          }}
-        >
-          {location && (
+          longitude: GEO_LOCATIONS[0].longitude,
+          latitudeDelta: 0.002,
+          longitudeDelta: 0.002,
+        }}
+      >
+        {location && (
+          <Marker
+            coordinate={{
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            }}
+            title="You are here"
+            pinColor="#2196F3"
+          />
+        )}
+        {GEO_LOCATIONS.map((geo) => (
+          <React.Fragment key={geo.id}>
             <Marker
-              coordinate={{
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
-              }}
-              title="You are here"
-              pinColor="#2196F3"
+              coordinate={{ latitude: geo.latitude, longitude: geo.longitude }}
+              title={geo.name}
+              pinColor="#4CAF50"
             />
-          )}
-          {GEO_LOCATIONS.map((geo) => (
-            <React.Fragment key={geo.id}>
-              <Marker
-                coordinate={{ latitude: geo.latitude, longitude: geo.longitude }}
-                title={geo.name}
-                pinColor="#4CAF50"
-              />
-              <Circle
-                center={{ latitude: geo.latitude, longitude: geo.longitude }}
-                radius={geo.radius}
-                fillColor="rgba(76, 175, 80, 0.2)"
-                strokeColor="rgba(76, 175, 80, 0.5)"
-              />
-            </React.Fragment>
-          ))}
-        </MapView>
+            <Circle
+              center={{ latitude: geo.latitude, longitude: geo.longitude }}
+              radius={geo.radius}
+              fillColor="rgba(76, 175, 80, 0.2)"
+              strokeColor="rgba(76, 175, 80, 0.5)"
+            />
+          </React.Fragment>
+        ))}
+      </MapView>
+    </View>
+
+    {/* Control Panel & Info */}
+    <ScrollView style={styles.controlPanel} contentContainerStyle={styles.controlPanelContent}>
+      {/* Button to Start/Stop Tracking */}
+      <View style={styles.buttonContainer}>
+        <Button
+          title={isTracking ? "Stop Tracking" : "Start Tracking"}
+          onPress={isTracking ? stopLocationTracking : startLocationTracking}
+        />
       </View>
 
-      {/* Control Panel & Info */}
-      <ScrollView style={styles.controlPanel} contentContainerStyle={styles.controlPanelContent}>
-        {/* Button to Start/Stop Tracking */}
-        <View style={styles.buttonContainer}>
-          <Button
-            title={isTracking ? "Stop Tracking" : "Start Tracking"}
-            onPress={isTracking ? stopLocationTracking : startLocationTracking}
-          />
-        </View>
+      {errorMsg ? (
+        <Text style={styles.errorText}>{errorMsg}</Text>
+      ) : location ? (
+        <>
+          {/* Current Zone */}
+          <View style={styles.zoneStatus}>
+            <Text style={styles.sectionTitle}>Zone Status</Text>
+            <Text
+              style={[
+                styles.zoneStatusText,
+                currentZoneStatus.includes("Not in any zone") ? styles.redText : styles.greenText,
+              ]}
+            >
+              {currentZoneStatus}
+            </Text>
+          </View>
 
-        {errorMsg ? (
-          <Text style={styles.errorText}>{errorMsg}</Text>
-        ) : location ? (
-          <>
-            {/* Current Zone */}
-            <View style={styles.zoneStatus}>
-              <Text style={styles.sectionTitle}>Zone Status</Text>
-              <Text
-                style={[
-                  styles.zoneStatusText,
-                  currentZoneStatus.includes("Not in any zone") ? styles.redText : styles.greenText,
-                ]}
-              >
-                {currentZoneStatus}
-              </Text>
-            </View>
+          {/* Current Location */}
+          <View style={styles.locationInfo}>
+            <Text style={styles.sectionTitle}>Current Location</Text>
+            <Text style={styles.coordinates}>
+              Lat: {location.coords.latitude.toFixed(6)}
+            </Text>
+            <Text style={styles.coordinates}>
+              Lon: {location.coords.longitude.toFixed(6)}
+            </Text>
+          </View>
 
-            {/* Current Location */}
-            <View style={styles.locationInfo}>
-              <Text style={styles.sectionTitle}>Current Location</Text>
-              <Text style={styles.coordinates}>
-                Lat: {location.coords.latitude.toFixed(6)}
-              </Text>
-              <Text style={styles.coordinates}>
-                Lon: {location.coords.longitude.toFixed(6)}
-              </Text>
-            </View>
-
-            {/* Nearby Geofences */}
-            <View style={styles.geofenceList}>
-              <Text style={styles.sectionTitle}>Nearby Locations</Text>
-              {GEO_LOCATIONS.map((geo) => (
-                <View key={geo.id} style={styles.geofenceItem}>
-                  <DirectionArrow bearing={bearings[geo.id] || 0} />
-                  <View style={styles.geofenceInfo}>
-                    <Text style={styles.geofenceName}>{geo.name}</Text>
-                    <Text style={styles.geofenceDistance}>
-                      {(distances[geo.id] || 0).toFixed(0)}m away
-                    </Text>
-                  </View>
+          {/* Nearby Geofences */}
+          <View style={styles.geofenceList}>
+            <Text style={styles.sectionTitle}>Nearby Locations</Text>
+            {GEO_LOCATIONS.map((geo) => (
+              <View key={geo.id} style={styles.geofenceItem}>
+                <DirectionArrow bearing={bearings[geo.id] || 0} />
+                <View style={styles.geofenceInfo}>
+                  <Text style={styles.geofenceName}>{geo.name}</Text>
+                  <Text style={styles.geofenceDistance}>
+                    {(distances[geo.id] || 0).toFixed(0)}m away
+                  </Text>
                 </View>
-              ))}
-            </View>
-          </>
-        ) : (
-          <Text style={styles.coordinates}>Waiting for location...</Text>
-        )}
-      </ScrollView>
-    </SafeAreaView>
-  );
+              </View>
+            ))}
+          </View>
+        </>
+      ) : (
+        <Text style={styles.coordinates}>Waiting for location...</Text>
+      )}
+    </ScrollView>
+  </SafeAreaView>
+);
 }
 
 // 🔹 Styles (Exactly as provided)
