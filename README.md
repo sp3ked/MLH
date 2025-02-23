@@ -24,43 +24,32 @@
 
 ## 🔧 Installation & Setup  
 ### **1. Clone the Repository**  
-```bash  
+bash  
 git clone https://github.com/yourusername/LocalLens.git  
 cd LocalLens  
+
 2. Install Dependencies
 📱 For the Frontend:
-bash
-Copy
-Edit
 cd MyLocationApp  
-npm install  
+npm install
+
 🖥️ For the Backend:
-bash
-Copy
-Edit
 cd backend  
 pip install -r requirements.txt  # Python dependencies  
 npm install  # Node.js dependencies  
-3. Setup Environment Variables
-Create a .env file in the backend/ directory and add:
 
-ini
-Copy
-Edit
+4. Setup Environment Variables
+Create a .env file in the backend/ directory and add:
 INSTAGRAM_USERNAME=your_instagram_username  
 INSTAGRAM_PASSWORD=your_instagram_password  
 TARGET_LIVE_URL=your_instagram_live_url  
 PORT=5000  
-4. Start the Backend Server
-bash
-Copy
-Edit
+
+5. Start the Backend Server
 cd backend  
 node server.js  
-5. Start the Mobile App
-bash
-Copy
-Edit
+
+6. Start the Mobile App
 cd MyLocationApp  
 npx expo start  
 Scan the QR code to open the app in Expo Go.
