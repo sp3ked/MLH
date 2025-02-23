@@ -127,7 +127,7 @@ app.get('/status', (req, res) => {
  * Just post the comment, initialization handled separately
  */
 app.post('/send-comment', async (req, res) => {
-  console.log('📥 Received location update:', req.body);
+  console.log('📥 Received fact update:', req.body);
   
   try {
     if (!driver || !instagramReady) {
@@ -136,8 +136,8 @@ app.post('/send-comment', async (req, res) => {
       instagramReady = true;
     }
 
-    const { latitude, longitude } = req.body;
-    const comment = `Location Update - Lat: ${latitude.toFixed(6)}, Long: ${longitude.toFixed(6)}`;
+    const { fact } = req.body;
+    const comment = `📍 Fact: ${fact}`;
 
     console.log("Attempting to post comment:", comment);
     await postComment(comment);

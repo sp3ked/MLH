@@ -13,6 +13,7 @@ interface GeofenceLocation {
   longitude: number;
   radius: number; // in meters
   comment: string;
+  facts: string[]; // Add facts array
 }
 
 // Update this to match your computer's IP address (not localhost!)
@@ -27,6 +28,9 @@ const GEO_LOCATIONS: GeofenceLocation[] = [
     longitude: -86.914065,
     radius: 75,
     comment: 'You are near the Clock Tower!',
+    facts: [
+      "The Clock Tower is a historic Purdue landmark, built in 1995. It stands 160 feet tall over campus. Its chimes resonate every hour for all to hear."
+    ]
   },
   {
     id: '2',
@@ -35,6 +39,9 @@ const GEO_LOCATIONS: GeofenceLocation[] = [
     longitude: -86.911866,
     radius: 50,
     comment: 'You are near the Clapping Circle!',
+    facts: [
+      "The Clapping Circle features a captivating echo effect. Students gather to test its acoustics by clapping. It's a delightful oddity unique to campus."
+    ]
   },
   {
     id: '3',
@@ -43,6 +50,9 @@ const GEO_LOCATIONS: GeofenceLocation[] = [
     longitude: -86.913974,
     radius: 30,
     comment: "You are near the Lion's Head Fountain!",
+    facts: [
+      "This fountain was donated by the Class of 1903 to honor tradition. It’s a tranquil place to relax with scenic architecture. Many campus photos are taken here."
+    ]
   },
   {
     id: '4',
@@ -51,15 +61,166 @@ const GEO_LOCATIONS: GeofenceLocation[] = [
     longitude: -86.907011,
     radius: 100,
     comment: 'You are at Verve!',
+    facts: [
+      'Verve is a popular coffee shop near Purdue’s campus.',
+      'It is known for its cozy atmosphere and delicious coffee.',
+      'Students often come here to study and socialize.'
+    ]
   },
   {
+    // Updated Co-Rec location
     id: '5',
     name: 'Co-Rec',
-    latitude: 40.429307,
-    longitude: -86.922374,
+    latitude: 40.428351,
+    longitude: -86.922461,
     radius: 100,
-    comment: 'You are at the Co-Rec!',
+    comment: 'Welcome to the Co-Rec!',
+    facts: [
+      'The Co-Rec is Purdue’s premier recreational sports center.',
+      'It has a variety of fitness classes and sports facilities.',
+      'A great place to stay active and meet fellow Boilermakers.'
+    ]
   },
+  {
+    // New Chick-fil-A zone
+    id: '6',
+    name: 'Chick-fil-A',
+    latitude: 40.428351,
+    longitude: -86.919702,
+    radius: 50,
+    comment: 'Welcome to Chick-fil-A! A great dining spot on campus.',
+    facts: [
+      'Chick-fil-A is famous for its chicken sandwiches and waffle fries.',
+      'It’s popular among students for quick, tasty meals.',
+      'Don’t forget to try their signature sauces!'
+    ]
+  },
+  {
+    id: '7',
+    name: 'Engineering Fountain',
+    latitude: 40.428626,
+    longitude: -86.913803,
+    radius: 50,
+    comment: 'Welcome to the Engineering Fountain!',
+    facts: [
+      'One of Purdue’s iconic landmarks in the Engineering Mall.',
+      'Its modern design is a favorite backdrop for student photos.',
+      'A common gathering spot for engineering students.'
+    ]
+  },
+  {
+    // Example for the extra coordinate near engineering
+    id: '8',
+    name: 'Engineering Hall',
+    latitude: 40.430186,
+    longitude: -86.913535,
+    radius: 50,
+    comment: 'Welcome to an Engineering building!',
+    facts: [
+      'This hall hosts various engineering labs and classrooms.',
+      'Collaborating here is a key part of many student projects.',
+      'You can find quiet study spots in some hallways.'
+    ]
+  },
+  {
+    id: '9',
+    name: 'Neil Armstrong Hall of Engineering',
+    latitude: 40.431060,
+    longitude: -86.914920,
+    radius: 50,
+    comment: 'Welcome to Neil Armstrong Hall of Engineering!',
+    facts: [
+      'Named after the first man on the moon, a Purdue alumnus.',
+      'Features interactive exhibits and innovative labs.',
+      'A centerpiece for Purdue’s engineering program.'
+    ]
+  },
+  {
+    id: '10',
+    name: 'Elliott Hall of Music',
+    latitude: 40.427900,
+    longitude: -86.914948,
+    radius: 50,
+    comment: 'Welcome to Elliott Hall of Music!',
+    facts: [
+      'Elliott Hall hosts concerts, theater, and major events.',
+      'It’s one of the largest proscenium theaters in the country.',
+      'Known for excellent acoustics and stage technology.'
+    ]
+  },
+  {
+    id: '11',
+    name: 'Hello Walk and Quad',
+    latitude: 40.424959,
+    longitude: -86.914293,
+    radius: 50,
+    comment: 'You are at the Hello Walk and Quad!',
+    facts: [
+      'The tradition is to say "Hello" to everyone you pass here.',
+      'A scenic spot to relax and enjoy campus views.',
+      'Often used for outdoor events and student gatherings.'
+    ]
+  },
+  {
+    id: '12',
+    name: 'Library',
+    latitude: 40.424967,
+    longitude: -86.912822,
+    radius: 50,
+    comment: 'Welcome to the Library!',
+    facts: [
+      'Purdue’s libraries offer extensive resources for research.',
+      'A quiet place to study and collaborate on projects.',
+      'You can reserve private study rooms here.'
+    ]
+  },
+  {
+    id: '13',
+    name: 'Purdue Memorial Union and Hotel',
+    latitude: 40.425000,
+    longitude: -86.911212,
+    radius: 50,
+    comment: 'Welcome to the Purdue Memorial Union!',
+    facts: [
+      'The Union has dining options, a game room, and lounges.',
+      'It also features a hotel and event spaces.',
+      'A central hub of campus life for students and visitors.'
+    ]
+  },
+  {
+    id: '14',
+    name: "Harry's Bar",
+    latitude: 40.423816,
+    longitude: -86.909021,
+    radius: 50,
+    comment: "Welcome to Harry's, Purdue’s most popular bar!",
+    facts: [
+      'A favorite hangout for Boilermakers and alumni.',
+      'Known for its lively atmosphere and longtime traditions.',
+      'Great spot to meet friends and unwind after classes.'
+    ]
+  },
+  {
+    id: '15',
+    name: 'City Hall',
+    latitude: 40.425237,
+    longitude: -86.906595,
+    radius: 50,
+    comment: 'Welcome to City Hall!',
+    facts: [
+      'Local government offices are located here.',
+      'Community events and meetings often take place inside.',
+      'It’s a building that showcases the city’s civic pride.'
+    ]
+  }
+];
+
+const PURDUE_FACTS = [
+  'Purdue University was founded in 1869.',
+  'Purdue’s mascot is the Boilermaker Special.',
+  'Purdue is known for its engineering and aviation programs.',
+  'Neil Armstrong, the first man on the moon, graduated from Purdue.',
+  'Purdue’s colors are black and gold.'
 ];
 
 // 🔰 Utility: Calculate bearing for direction arrow
@@ -107,9 +268,13 @@ export default function LocationTracker() {
   // Posting interval
   const postIntervalRef = useRef<NodeJS.Timer | null>(null);
 
-  // Add last post timestamp tracking
+  // Add last post timestamp tracking and a flag to prevent multiple posts
   const lastPostTime = useRef<number>(0);
-  const POST_INTERVAL = 15000; // 15 seconds in milliseconds
+  const isPosting = useRef<boolean>(false);
+  const POST_INTERVAL = 10000; // 10 seconds in milliseconds
+
+  // Track zones that have already had facts posted
+  const visitedZones = useRef<Set<string>>(new Set());
 
   // 🟢 Helper to add logs to the "Status Updates" list
   const addStatusMessage = (message: string) => {
@@ -145,12 +310,13 @@ export default function LocationTracker() {
   };
 
   // 🟢 Modified to handle location updates better
-  const checkGeofencesAndPost = async (coords: { latitude: number; longitude: number }, forcePost: boolean = false) => {
+  const checkGeofencesAndPost = async (coords: { latitude: number; longitude: number }) => {
     try {
       // Update geofences as before
       let insideZones: string[] = [];
       const newDistances: { [key: string]: number } = {};
       const newBearings: { [key: string]: number } = {};
+      let currentFacts: string[] = [];
 
       GEO_LOCATIONS.forEach((geo) => {
         const distance = haversineDistance(coords.latitude, coords.longitude, geo.latitude, geo.longitude);
@@ -159,8 +325,11 @@ export default function LocationTracker() {
         newDistances[geo.id] = distance;
         newBearings[geo.id] = bearing;
 
-        if (distance <= geo.radius) {
+        // Only post once upon first entry
+        if (distance <= geo.radius && !visitedZones.current.has(geo.id)) {
           insideZones.push(geo.name);
+          currentFacts = geo.facts;
+          visitedZones.current.add(geo.id);
         }
       });
 
@@ -185,38 +354,22 @@ export default function LocationTracker() {
       // Log current location every 2 seconds
       addStatusMessage(`Current location: Lat ${coords.latitude.toFixed(6)}, Long ${coords.longitude.toFixed(6)}`);
 
-      // Check if it's time to post (15 seconds elapsed)
-      const now = Date.now();
-      if (forcePost || (now - lastPostTime.current >= POST_INTERVAL)) {
+      // If a new zone was entered, post immediately
+      if (insideZones.length > 0 && currentFacts.length > 0) {
         debugLog('Preparing to send location to server...');
-        
-        // Check server status before posting
         const serverReady = await checkServerStatus();
-        if (!serverReady) {
-          debugLog('Server not ready, skipping post');
-          return;
-        }
+        if (!serverReady) return;
 
         try {
+          const factToPost = currentFacts[Math.floor(Math.random() * currentFacts.length)];
           const response = await fetch(`${BACKEND_URL}/send-comment`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              latitude: coords.latitude,
-              longitude: coords.longitude
-            }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fact: factToPost }),
           });
-
-          if (!response.ok) {
-            throw new Error(`Server responded with ${response.status}`);
-          }
-
+          if (!response.ok) throw new Error(`Server responded with ${response.status}`);
           const data = await response.json();
           addStatusMessage(`✅ Posted to Instagram: ${data.comment}`);
-          lastPostTime.current = now; // Update last post time
-          debugLog('Successfully posted location');
         } catch (error) {
           addStatusMessage(`❌ Failed to post: ${error.message}`);
           debugLog(`Post error: ${error}`);
@@ -264,7 +417,7 @@ export default function LocationTracker() {
               longitudeDelta: 0.001,
             }, 500);
           }
-          checkGeofencesAndPost(newLoc.coords, false);
+          checkGeofencesAndPost(newLoc.coords);
         }
       );
 
