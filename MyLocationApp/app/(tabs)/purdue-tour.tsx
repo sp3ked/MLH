@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import LocationTracker from './components/LocationTracker';
+import LocationTracker from '@/app/components/LocationTracker';
 
-export default function App() {
+export default function PurdueTourScreen() {
   return (
     <View style={styles.container}>
       <LocationTracker />
@@ -14,7 +14,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
